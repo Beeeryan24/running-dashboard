@@ -615,12 +615,12 @@
     function mkRun(o){
       const n=v=>(v===''||v==null||isNaN(+v))?null:+v; const dist=n(o.distance),dur=n(o.duration_min),kc=n(o.calories);
       if(!o.date||!dist||!dur) return null; const d=String(o.date).slice(0,10), p=d.split('-');
-      return {date:d,label:MN[+p[1]-1]+' '+p[2]+" '"+p[0].slice(2),duration_min:dur,active_energy:kc||0,intensity:kc?+(kc/(dur/60)/61.2).toFixed(3):0,max_hr:n(o.max_hr),avg_hr:n(o.avg_hr)||0,distance:dist,avg_speed:+(dist/(dur/60)).toFixed(3),pace:+(dur/dist).toFixed(2),elevation_asc:n(o.elevation)||0,cadence:n(o.cadence),temp:n(o.temp),humidity:n(o.humidity)};
+      return {date:d,time:String(o.time||'').slice(11,16),label:MN[+p[1]-1]+' '+p[2]+" '"+p[0].slice(2),duration_min:dur,active_energy:kc||0,intensity:kc?+(kc/(dur/60)/61.2).toFixed(3):0,max_hr:n(o.max_hr),avg_hr:n(o.avg_hr)||0,distance:dist,avg_speed:+(dist/(dur/60)).toFixed(3),pace:+(dur/dist).toFixed(2),elevation_asc:n(o.elevation)||0,cadence:n(o.cadence),temp:n(o.temp),humidity:n(o.humidity)};
     }
     function extra(){ try{return JSON.parse(localStorage.getItem('bryan_extra_runs')||'[]')}catch(e){return []} }
     function applyData(base){
       const have=new Set(base.map(r=>r.date+'|'+r.duration_min)); const all=base.concat(extra().filter(r=>!have.has(r.date+'|'+r.duration_min)));
-      all.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0); RUNS=all; updateStats(); switchTab(currentTab);
+      const key=r=>r.date+'T'+(r.time||'00:00'); all.sort((a,b)=>key(a)<key(b)?-1:key(a)>key(b)?1:0); RUNS=all; updateStats(); switchTab(currentTab);
     }
     const BASE=RUNS.slice();
     function saveRuns(list){ const cur=extra(); list.forEach(r=>{ if(!cur.some(c=>c.date===r.date&&c.duration_min===r.duration_min)) cur.push(r); }); localStorage.setItem('bryan_extra_runs',JSON.stringify(cur)); applyData(window._base||BASE); }
@@ -647,8 +647,8 @@
       try{ sm('Fetching…'); let all=[],page=1; while(page<=10){ const r=await fetch('https://www.strava.com/api/v3/athlete/activities?per_page=100&page='+page,{headers:{Authorization:'Bearer '+tok}}); const j=await r.json(); if(!r.ok) throw new Error((j.message||r.status)+(j.errors&&j.errors[0]?' - '+j.errors[0].field+' '+j.errors[0].code:'')); if(!j.length) break; all=all.concat(j); page++; }
         const runs=all.filter(a=>(a.sport_type||a.type)==='Run'&&!a.trainer);
         const out=[]; runs.forEach(a=>{ const d=(a.start_date_local||'').slice(0,10), mi=a.distance/1609.344, mins=a.moving_time/60;
-          if(RUNS.some(x=>x.date===d&&Math.abs(x.distance-mi)<0.2)) return;
-          const r=mkRun({date:d,distance:mi.toFixed(3),duration_min:mins.toFixed(1),avg_hr:a.average_heartrate,max_hr:a.max_heartrate,calories:a.calories||(a.kilojoules?a.kilojoules/4.184:null),cadence:a.average_cadence?a.average_cadence*2:null,temp:a.average_temp!=null?a.average_temp*9/5+32:null,humidity:null,elevation:(a.total_elevation_gain||0)*3.28084}); if(r) out.push(r); });
+          if(RUNS.some(x=>x.date===d&&Math.abs(x.distance-mi)<0.2)) return; if(a.start_date_local&&RUNS.some(x=>x.time&&x.date===d&&x.time===a.start_date_local.slice(11,16))) return;
+          const r=mkRun({time:a.start_date_local,date:d,distance:mi.toFixed(3),duration_min:mins.toFixed(1),avg_hr:a.average_heartrate,max_hr:a.max_heartrate,calories:a.calories||(a.kilojoules?a.kilojoules/4.184:null),cadence:a.average_cadence?a.average_cadence*2:null,temp:a.average_temp!=null?a.average_temp*9/5+32:null,humidity:null,elevation:(a.total_elevation_gain||0)*3.28084}); if(r) out.push(r); });
         if(out.length) saveRuns(out); sm('Checked '+runs.length+' outdoor runs; added '+out.length+' new.');
       }catch(e){ sm('Strava said: '+e.message+'. Your token may be expired or only have "read" permission - use the steps above to get an activity:read token.'); }
     };
