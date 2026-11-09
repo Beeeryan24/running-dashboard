@@ -605,6 +605,18 @@
         const key = {'chart-hr':'avg_hr','chart-pace':'pace','chart-cadence':'cadence','chart-distance':'distance','chart-elevation':'elevation_asc','chart-duration':'duration_min','chart-calories':'active_energy','chart-intensity':'intensity'}[chart.canvas.id];
         return c.find(r => r[key]===pt) || c[0];
     }
+
+    function ovKey(r){ return r.date+'|'+(+r.distance).toFixed(2); }
+    function ovs(){ try{return JSON.parse(localStorage.getItem('bryan_overrides')||'{}')}catch(e){return {}} }
+    const EDIT=[['avg_hr','Avg HR (bpm)'],['max_hr','Max HR (bpm)'],['active_energy','Calories (kcal)'],['cadence','Cadence (spm)'],['elevation_asc','Elevation (ft)'],['temp','Temp (°F)'],['humidity','Humidity (%)']];
+    function editRun(chart, r){
+      const box=chart.canvas.parentElement.parentElement.querySelector('.run-detail'); const cid=chart.canvas.id;
+      box.innerHTML='<div style="font-weight:700;font-size:1.05rem;margin-bottom:10px">Edit '+r.label+' run</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px">'+EDIT.map(f=>'<label style="font-size:.7rem;text-transform:uppercase;color:#9ca3af">'+f[1]+'<input id="e-'+f[0]+'" type="number" step="any" value="'+((r[f[0]]>0||(r[f[0]]===0&&f[0]==='elevation_asc'))?r[f[0]]:'')+'" style="display:block;width:100%;margin-top:3px;padding:6px;border-radius:8px;background:#0f1117;color:#fff;border:1px solid #333"></label>').join('')+'</div><div style="margin-top:12px;display:flex;gap:8px;align-items:center"><button id="e-save" class="tab-btn" style="background:linear-gradient(135deg,#3b82f6,#6366f1)!important;color:#fff!important">Save changes</button><button id="e-cancel" class="tab-btn" style="border:1px solid rgba(255,255,255,.14)!important">Cancel</button><button id="e-clear" class="tab-btn" style="color:#fca5a5!important;border:1px solid rgba(255,255,255,.14)!important">Undo my edits</button></div>';
+      document.getElementById('e-cancel').onclick=()=>showRun(chart,r);
+      const done=()=>{ applyData(window._base||BASE); const nr=RUNS.find(x=>ovKey(x)===ovKey(r)&&x.date===r.date); const ch=chartInstances[cid]; if(ch&&nr) showRun(ch,nr); };
+      document.getElementById('e-save').onclick=()=>{ const o=ovs(), v={}; EDIT.forEach(f=>{ const x=document.getElementById('e-'+f[0]).value; if(x!=='') v[f[0]]=+x; }); o[ovKey(r)]=Object.assign(o[ovKey(r)]||{},v); localStorage.setItem('bryan_overrides',JSON.stringify(o)); done(); };
+      document.getElementById('e-clear').onclick=()=>{ const o=ovs(); delete o[ovKey(r)]; localStorage.setItem('bryan_overrides',JSON.stringify(o)); done(); };
+    }
     function showRun(chart, r){
         const host = chart.canvas.parentElement; let box = host.parentElement.querySelector('.run-detail');
         document.querySelectorAll('.run-detail').forEach(b => { if (b!==box) b.remove(); });
@@ -612,13 +624,14 @@
         const items = [['Distance',fmtV(r.distance,2,' mi')],['Duration',fmtV(r.duration_min,1,' min')],['Pace',r.pace?formatPace(r.pace)+' /mi':'—'],['Avg HR',fmtV(r.avg_hr,0,' bpm')],['Max HR',fmtV(r.max_hr,0,' bpm')],['Cadence',fmtV(r.cadence,0,' spm')],['Calories',fmtV(r.active_energy,0,' kcal')],['Intensity',fmtV(r.intensity,2)],['Elevation',fmtV(r.elevation_asc,1,' ft')],['Temperature',fmtV(r.temp,0,'°F')],['Humidity',fmtV(r.humidity,0,'%')]];
         box.style.cssText='margin-top:12px;padding:16px;border-radius:1rem;background:#22252f;border:1px solid #3b82f6';
         box.innerHTML='<div style="font-weight:700;font-size:1.05rem;margin-bottom:10px">'+r.label+' run</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px">'+items.map(a=>'<div><div style="font-size:.7rem;text-transform:uppercase;color:#9ca3af">'+a[0]+'</div><div style="font-size:1.1rem;font-weight:600">'+a[1]+'</div></div>').join('')+'</div>';
+        const eb=document.createElement('button'); eb.className='tab-btn'; eb.textContent='✎ Edit this run'; eb.style.cssText='margin-top:12px;border:1px solid rgba(255,255,255,.14)!important;color:#e5e7eb!important'; eb.onclick=()=>editRun(chart,r); box.appendChild(eb);
     }
     Chart.defaults.onClick = function(e, els, chart){
         if (!els || !els.length) return; if (chart.canvas.id==='chart-monthly') return;
         const r = findRun(chart, els[0]); if (r) showRun(chart, r);
     };
     Chart.defaults.interaction.mode='nearest'; Chart.defaults.interaction.intersect=false;
-    document.querySelectorAll('canvas').forEach(c=>{ if(c.id!=='chart-monthly'){ const h=document.createElement('p'); h.style.cssText='font-size:.75rem;color:#9ca3af;margin-top:6px'; h.textContent='Click a data point to see that run\u2019s details below.'; c.parentElement.insertAdjacentElement('afterend',h);} });
+    document.querySelectorAll('canvas').forEach(c=>{ if(c.id!=='chart-monthly'){ const h=document.createElement('p'); h.style.cssText='font-size:.75rem;color:#9ca3af;margin-top:6px'; h.textContent='Click a data point to see that run\u2019s details below, and edit missing values.'; c.parentElement.insertAdjacentElement('afterend',h);} });
 
     // ---- Data entry / import / persistence ----
     const BASE_N = RUNS.length, FIELDS=[['date','Date','date'],['distance','Distance (mi)','number'],['duration_min','Duration (min)','number'],['avg_hr','Avg HR','number'],['max_hr','Max HR','number'],['calories','Calories (kcal)','number'],['cadence','Cadence (spm)','number'],['temp','Temp (°F)','number'],['humidity','Humidity (%)','number'],['elevation','Elevation (ft)','number']];
@@ -632,7 +645,7 @@
     function extra(){ try{return JSON.parse(localStorage.getItem('bryan_extra_runs')||'[]')}catch(e){return []} }
     function applyData(base){
       const have=new Set(base.map(r=>r.date+'|'+r.duration_min)); const all=base.concat(extra().filter(r=>!have.has(r.date+'|'+r.duration_min)));
-      const key=r=>r.date+'T'+(r.time||'00:00'); all.sort((a,b)=>key(a)<key(b)?-1:key(a)>key(b)?1:0); RUNS=all; updateStats(); switchTab(currentTab);
+      const key=r=>r.date+'T'+(r.time||'00:00'); all.sort((a,b)=>key(a)<key(b)?-1:key(a)>key(b)?1:0); all.forEach(r=>{ const o=ovs()[ovKey(r)]; if(o){ Object.assign(r,o); if(o.active_energy&&r.duration_min) r.intensity=+(o.active_energy/(r.duration_min/60)/61.2).toFixed(3); } }); RUNS=all; updateStats(); switchTab(currentTab);
     }
     const BASE=RUNS.slice();
     function saveRuns(list){ const cur=extra(); list.forEach(r=>{ if(!cur.some(c=>c.date===r.date&&c.duration_min===r.duration_min)) cur.push(r); }); localStorage.setItem('bryan_extra_runs',JSON.stringify(cur)); applyData(window._base||BASE); }
