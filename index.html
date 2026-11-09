@@ -275,7 +275,7 @@
         destroyChart('chart-distance');
         const labels = RUNS.map(r => r.label);
         const distances = RUNS.map(r => r.distance);
-        const avgDist = totalMiles / totalRuns;
+        const avgDist = RUNS.reduce((s, r) => s + r.distance, 0) / RUNS.length;
         const maxDist = Math.max(...distances);
         const colors = distances.map(d => {
             const ratio = d / maxDist;
