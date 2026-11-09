@@ -177,7 +177,7 @@
     const totalMiles = RUNS.reduce((s, r) => s + r.distance, 0);
     const paceRuns = RUNS.filter(r => r.pace != null && r.pace > 0);
     const avgPace = paceRuns.reduce((s, r) => s + r.pace, 0) / paceRuns.length;
-    const avgHR = RUNS.reduce((s, r) => s + r.avg_hr, 0) / RUNS.length;
+    const _hr = RUNS.filter(r => r.avg_hr > 0); const avgHR = _hr.reduce((s, r) => s + r.avg_hr, 0) / (_hr.length || 1);
     const bestPace = Math.min(...paceRuns.map(r => r.pace));
     const totalCal = RUNS.reduce((s, r) => s + r.active_energy, 0);
 
@@ -221,7 +221,7 @@
             data: {
                 labels: fullLabels,
                 datasets: [
-                    { label: 'Avg HR', data: RUNS.map(r => r.avg_hr), borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.15)', tension: 0.3, pointRadius: 2, borderWidth: 2, fill: true },
+                    { label: 'Avg HR', data: RUNS.map(r => r.avg_hr > 0 ? r.avg_hr : null), spanGaps: true, borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.15)', tension: 0.3, pointRadius: 2, borderWidth: 2, fill: true },
                     { label: 'Max HR', data: RUNS.map(r => r.max_hr), borderColor: '#ec4899', backgroundColor: 'rgba(236,72,153,0.08)', tension: 0.3, pointRadius: 2, borderWidth: 2, borderDash: [6, 3], fill: false },
                     { label: 'Zone 4 (160 bpm)', data: RUNS.map(() => 160), borderColor: 'rgba(245,158,11,0.7)', borderWidth: 1.5, borderDash: [4, 4], pointRadius: 0, fill: false }
                 ]
@@ -396,7 +396,7 @@
         destroyChart('chart-humidity-hr');
 
         const tempRuns = RUNS.filter(r => r.temp != null && r.pace != null && r.pace > 0);
-        const humRuns = RUNS.filter(r => r.humidity != null && r.pace != null);
+        const humRuns = RUNS.filter(r => r.humidity != null && r.pace != null && r.avg_hr > 0);
 
         const temps = tempRuns.map(r => r.temp);
         const minT = Math.min(...temps), maxT = Math.max(...temps);
@@ -499,7 +499,7 @@
         });
         const avgHRs = sortedKeys.map(k => {
             const runs = months[k];
-            return (runs.reduce((s, r) => s + r.avg_hr, 0) / runs.length) / 10;
+            const _h = runs.filter(r => r.avg_hr > 0); return _h.length ? (_h.reduce((s, r) => s + r.avg_hr, 0) / _h.length) / 10 : null;
         });
         const runCounts = sortedKeys.map(k => months[k].length);
 
@@ -627,7 +627,7 @@
     function mkRun(o){
       const n=v=>(v===''||v==null||isNaN(+v))?null:+v; const dist=n(o.distance),dur=n(o.duration_min),kc=n(o.calories);
       if(!o.date||!dist||!dur) return null; const d=String(o.date).slice(0,10), p=d.split('-');
-      return {date:d,time:String(o.time||'').slice(11,16),label:MN[+p[1]-1]+' '+p[2]+" '"+p[0].slice(2),duration_min:dur,active_energy:kc||0,intensity:kc?+(kc/(dur/60)/61.2).toFixed(3):0,max_hr:n(o.max_hr),avg_hr:n(o.avg_hr)||0,distance:dist,avg_speed:+(dist/(dur/60)).toFixed(3),pace:+(dur/dist).toFixed(2),elevation_asc:n(o.elevation)||0,cadence:n(o.cadence),temp:n(o.temp),humidity:n(o.humidity)};
+      return {date:d,time:String(o.time||'').slice(11,16),label:MN[+p[1]-1]+' '+p[2]+" '"+p[0].slice(2),duration_min:dur,active_energy:kc||0,intensity:kc?+(kc/(dur/60)/61.2).toFixed(3):0,max_hr:n(o.max_hr),avg_hr:n(o.avg_hr),distance:dist,avg_speed:+(dist/(dur/60)).toFixed(3),pace:+(dur/dist).toFixed(2),elevation_asc:n(o.elevation)||0,cadence:n(o.cadence),temp:n(o.temp),humidity:n(o.humidity)};
     }
     function extra(){ try{return JSON.parse(localStorage.getItem('bryan_extra_runs')||'[]')}catch(e){return []} }
     function applyData(base){
